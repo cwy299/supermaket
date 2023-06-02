@@ -1,10 +1,12 @@
 import Vue from 'vue'
 import Router from 'vue-router'
+import detail from "../views/detail/detail";
 
 const Cart = () => import('../views/cart/Cart')
 const Home = () => import('../views/home/Home')
 const Category = () =>import('../views/categroy/Categroy')
 const Profile = () => import('../views/profile/Profile')
+const Detail = () => import('../views/detail/detail')
 
 Vue.use(Router)
 
@@ -28,6 +30,10 @@ const  routes =[
   {
     path:'/Profile',
     component:Profile
+  },
+  {
+    path:'/detail/:iid',
+    component:Detail
   }
 
 ]

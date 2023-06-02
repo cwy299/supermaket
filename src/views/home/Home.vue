@@ -2,11 +2,15 @@
 <div class="home">
   <nav-bar class="home-nav">
     <div slot="center">购物街</div> </nav-bar>
-    <scroll class="content" ref="scroll" :probe-type="3" @scroll="contentScroll">
-     <home-swiper :banners="banners"></home-swiper>
+    <scroll class="content" ref="scroll"
+            :probe-type="3" @scroll="contentScroll"
+            :pull-up-load="true"
+            @pullingUp="loadMore">
+     <home-swiper :banners="banners" @swiperImageLoad="swiperImageLoad"></home-swiper>
      <recommend-view :recommends="recommends"></recommend-view>
      <feature-view></feature-view>
-     <tab-control class="tab-control"
+     <tab-control class="tab-control" ref="tabcontrol"
+                  :class="{fixed:isTabfix}"
                   :titles="['流行','新款','精品']" @tabClick="tabClick"></tab-control>
      <GoodsList :goods="goods[currentType].list"></GoodsList>
    <ul>
@@ -84,8 +88,9 @@
 
   import {getHomeMultidata,getHomeGoods} from "../../network/home"
   import BSsroll from 'better-scroll'
+  import {debounce} from "../../common/until";
 
-export default {
+  export default {
   name: "Home",
   data(){
     return {
@@ -98,6 +103,10 @@ export default {
       },
       currentType:'pop',
       ishowBackTop:false,
+      tabOffsetTop:0,
+      isTabfix:false,
+      saveY:0,
+      itemImgLister: null
 
     }
   },
@@ -109,12 +118,32 @@ export default {
     this.getHomeGoods('sell')
 
   },
+    activated() {
+    this.$refs.scroll.scrollTo(0,this.saveY,0)
+    },
+    deactivated() {
+    this.saveY = this.$refs.scroll.scroll.y
+      //取消全局的事件监听
+      this.$bus.$off('itemImgLoad',this.itemImgList)
+    },
+    mounted() {
+    //获取tabControl的offsettop
+    //图片加载完成的事件监听
+    const refresh = debounce(this.$refs.scroll.refresh(),50)
+    this.$bus.$on('itemImgLoad',()=>{
+      // console.log('----事件总线');
+      this.$refs.scroll.refresh()
+    })
+  },
 
   methods:{
-
     /*
     * 事件监听相关的方法
     * */
+    swiperImageLoad(){
+      //所有组件都有一个属性$el.用于获取组件中的元素
+      this.tabOffsetTop = this.$refs.tabcontrol.$el.offsetTop;
+    },
     tabClick(index){
       // console.log(index);
       switch (index){
@@ -129,27 +158,28 @@ export default {
           break
       }
     },
+    //防抖函数，单位时间内还有请求的话，就不会执行定会器里的函数
+    },
     backClick(){
       this.$refs.scroll.scrollTo(0,0);
     },
     contentScroll(position){
       // console.log(position);
-      this.ishowBackTop = (-position.y) >1000
-
+       this.ishowBackTop = (-position.y) >500
+      // 强制转换
+      //决定tabControl是否吸顶
+      this.isTabfix = (-position.y) > this.tabOffsetTop
     },
-
-
-    // 	//返回顶部
-    // 	// this.$refs.scroll.scroll.scrollTo(0,0,500);
-    //
-    // },
-
+    loadMore(){
+      // console.log('上拉加载更多');
+      this.getHomeGoods(this.currentType)
+    },
 
     /*
     * 网络请求相关的方法
     * */
-
     //封装请求成为一个方法，在created中以函数的方式调用
+
     getHomeMultidata(){
       getHomeMultidata().then(res =>{
         console.log(res);
@@ -160,13 +190,14 @@ export default {
     },
     getHomeGoods(type){
       const page = this.goods[type].page + 1 //不写死page
-      getHomeGoods('pop',page).then(res =>{
+      getHomeGoods(type,page).then(res =>{
         // console.log(res);
         // 将数组直接赋值到另一个数组 1遍历法 for（let n in nums） newnums.push(n) 2、newnums.push(...nums)
         this.goods[type].list.push(...res.data.list)
         this.goods[type].page += 1
+        this.$refs.scroll.finishPullUp()
       })
-    }
+
   },
   components: {
     NavBar,
@@ -207,6 +238,12 @@ export default {
   height: calc(100vh - 98px);
   overflow: hidden;
 
+}
+.fixed{
+  position: fixed;
+  left: 0;
+  right: 0;
+  top:44px;
 }
 
 
